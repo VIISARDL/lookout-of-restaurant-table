@@ -1,0 +1,3 @@
+[submodule "retinanet"]
+	path = retinanet
+	url = https://github.com/VIISARDL/pytorch-retinanet

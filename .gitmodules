@@ -1,3 +1,6 @@
 [submodule "retinanet"]
 	path = retinanet
 	url = https://github.com/VIISARDL/pytorch-retinanet
+[submodule "yolov2/pytorchYolo2"]
+	path = yolov2/pytorchYolo2
+	url = https://github.com/CarlosPena00/pytorch-yolo2

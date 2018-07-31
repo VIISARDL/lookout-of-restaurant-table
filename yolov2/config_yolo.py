@@ -6,13 +6,13 @@ from pytorchYolo2.cfg import parse_cfg
 
 
 class ConfigProvider():
-    columns = ['train', 'valid', 'names', 'backup']
+    columns = ['train', 'valid', 'names', 'Backup']
     
     imgFile = 'imgList.txt'
     trainFile = 'train_list.txt'
     testFile = 'test_list.txt'
     
-    pathSyn = 'Synthetic'
+    pathSyn = '~/.Datasets'
     cwd = os.getcwd()
     configRoot = 'Config/'
     projectRoot = cwd.replace('lib', '')
@@ -43,10 +43,10 @@ class ConfigProvider():
         self.__CreateFullList()
         
     def getTestUrl(self):
-        return (self.projectRoot + '/' + self.configRoot + self.testFile)
+        return (self.projectRoot + '/' + self.configRoot + '/' + self.testFile)
     
     def getTrainUrl(self):
-        return (self.projectRoot + '/' + self.configRoot + self.trainFile)
+        return (self.projectRoot + '/' + self.configRoot + '/' + self.trainFile)
     
     def __readCfg(self):
         if self.cfgfile is not '':
@@ -64,24 +64,25 @@ class ConfigProvider():
     
     def __readDataCfg(self):
         if self.datacfg is not '':
+            
             with open(self.datacfg, 'r') as fp:
                 lines = fp.readlines()
                 
             trainUrl = lines[0].replace('\n','').split(',')[1:]
             for i in range(len(trainUrl)):
-                self.trainList.append(self.projectRoot + '/' + self.pathSyn 
+                self.trainList.append(self.pathSyn 
                                       + '/' + trainUrl[i] + '/' + self.imgFile)
                 
             
             testUrl = lines[1].replace('\n','').split(',')[1:]
             for i in range(len(testUrl)):
-                self.testList.append(self.projectRoot + '/' + self.pathSyn 
+                self.testList.append(self.pathSyn 
                                      + '/' + testUrl[i] + '/' + self.imgFile)
                 
             nameUrl = lines[2].replace('\n','').split(',')[1:]
             backupUrl = lines[3].replace('\n','').split(',')[1:]
             
-            self.backupDir = backupUrl if len(backupUrl) > 0 else '../backup'
+            self.backupDir = backupUrl if len(backupUrl) > 0 else 'Backup'
             if not os.path.exists(self.backupDir):
                 os.mkdir(self.backupDir)
     
@@ -90,17 +91,17 @@ class ConfigProvider():
             
     def __CreateFullList(self):
         self.trainSample = 0
-        with open(self.projectRoot + self.configRoot+self.trainFile, 'w') as f:     
+        with open(self.projectRoot +'/'+ self.configRoot+self.trainFile, 'w') as f:     
             for fl in self.trainList:
-                with open(fl, 'r') as tl:
+                with open(os.path.expanduser(fl), 'r') as tl:
                     lines = tl.readlines()
                     for line in lines:
                         f.write(line)
                     self.trainSample = len(lines)
                         
-        with open(self.projectRoot + self.configRoot+self.testFile, 'w') as f:     
+        with open(self.projectRoot +'/' + self.configRoot+self.testFile, 'w') as f:     
             for fl in self.testList:
-                with open(fl, 'r') as tl:
+                with open(os.path.expanduser(fl), 'r') as tl:
                     lines = tl.readlines()
                     for line in lines:
                         f.write(line)

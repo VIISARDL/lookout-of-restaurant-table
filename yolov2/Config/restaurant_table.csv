@@ -1,4 +1,4 @@
 train,RM1
 valid,RM1
-names,IC.names
-backup
+names,table.names
+Backup

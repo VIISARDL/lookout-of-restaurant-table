@@ -1,20 +1,23 @@
+
+import torch
+
 import os
 import cv2
 import numpy as np
 from tqdm import tqdm
 from PIL import Image
 import config_yolo as config
-import synDataAugment as dt
+import utils_yolo as dt
 from datetime import datetime
-
-import torch
-import torch.optim as optim
-from torchvision import transforms
-from torch.autograd import Variable
 
 from pytorchYolo2 import dataset
 from pytorchYolo2 import utils as ut
 from pytorchYolo2.darknet import Darknet
+
+import torch.optim as optim
+from torchvision import transforms
+from torch.autograd import Variable
+
 
 class Yolo():
 
@@ -39,10 +42,10 @@ class Yolo():
         self.model.load_weights(weightfile)
 
         self.region_loss.seen 	= self.model.seen
-        self.processed_batches 	= self.model.seen // self.cp.batch_size
+        self.processed_batches 	= self.model.seen / self.cp.batch_size
         self.init_width 		= self.model.width
         self.init_height 		= self.model.height
-        self.init_epoch 		= self.model.seen // self.nsamples
+        self.init_epoch 		= self.model.seen / self.nsamples
         self.namesfile 			= namesfile
         self.class_names 		= ut.load_class_names(namesfile)
 
@@ -534,12 +537,11 @@ class Yolo():
 
 
 if __name__ == '__main__':
-    init = 100000
-    weight = "../backup/{:06d}.weights".format(init)
-    cccfg = '../Config/colorchecker.cfg'
-    yolocfg = '../Config/yolo-voc.cfg'
-    namesfile = '../Config/atHome.names'
-    yolo = Yolo('../Config/IC.csv', yolocfg, weight, namesfile)
+    init = 0
+    weight = "Backup/{:06d}.weights".format(init)
+    yolocfg = 'Config/yolo-voc.cfg'
+    namesfile = 'Config/table.names'
+    yolo = Yolo('Config/restaurant_table.csv', yolocfg, weight, namesfile)
     
     yolo.save_interval = 5
     
@@ -547,7 +549,7 @@ if __name__ == '__main__':
         yolo.train(i, fixLR=0.00001)
         yolo.test(i)
        
-    alfa = yolo.simpleDetectFolder('../Synthetic/RM1/JPEGImages')
+    #alfa = yolo.simpleDetectFolder('../Synthetic/RM1/JPEGImages')
 # =============================================================================
     #beta = yolo.detectCam(0)
 # =============================================================================

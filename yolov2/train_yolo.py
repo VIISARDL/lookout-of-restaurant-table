@@ -26,8 +26,8 @@ class Yolo():
     params = []
 
     def __init__(self, datacfg='', cfgfile='', weightfile=None, namesfile='../Config/atHome.names'):
-        self.datacfg 	= datacfg
-        self.cfgfile 	= cfgfile
+        self.datacfg    = datacfg
+        self.cfgfile    = cfgfile
         self.weightfile = weightfile
 
         self.__initConfigProvider()
@@ -41,13 +41,13 @@ class Yolo():
 
         self.model.load_weights(weightfile)
 
-        self.region_loss.seen 	= self.model.seen
-        self.processed_batches 	= self.model.seen / self.cp.batch_size
-        self.init_width 		= self.model.width
-        self.init_height 		= self.model.height
-        self.init_epoch 		= self.model.seen / self.nsamples
-        self.namesfile 			= namesfile
-        self.class_names 		= ut.load_class_names(namesfile)
+        self.region_loss.seen   = self.model.seen
+        self.processed_batches  = self.model.seen / self.cp.batch_size
+        self.init_width         = self.model.width
+        self.init_height        = self.model.height
+        self.init_epoch         = self.model.seen / self.nsamples
+        self.namesfile          = namesfile
+        self.class_names        =  ut.load_class_names(namesfile)
 
         self.__init_test_loader()
 
@@ -146,18 +146,18 @@ class Yolo():
         correct = 0.0
 
         for batch_idx, (data, target) in enumerate(self.test_loader):
-
-            data = Variable(data.cuda())
-            output = self.model(data).data
-            all_boxes = ut.get_region_boxes(
+            with torch.no_grad():
+                data = Variable(data.cuda())
+            output      = self.model(data).data
+            all_boxes   = ut.get_region_boxes(
                 output, self.conf_thresh, num_classes, anchors, num_anchors)
 
             for i in range(output.size(0)):
-                boxes 	= all_boxes[i]
-                boxes 	= ut.nms(boxes, self.nms_thresh)
-                truths 	= target[i].view(-1, 5)
+                boxes   = all_boxes[i]
+                boxes   = ut.nms(boxes, self.nms_thresh)
+                truths  = target[i].view(-1, 5)
                 num_gts = truths_length(truths)
-                total 	= total + num_gts
+                total   = total + num_gts
 
                 for i in range(len(boxes)):
                     if boxes[i][4] > self.conf_thresh:
@@ -174,29 +174,35 @@ class Yolo():
                     if best_iou > self.iou_thresh and boxes[j][6] == box_gt[6].type(torch.LongTensor):
                         correct = correct + 1
 
-        precision 	= 1.0 * correct / (proposals + self.eps)
-        recall 		= 1.0 * correct / (total + self.eps)
-        fscore 		= 2.0 * precision * recall / (precision + recall + self.eps)
+        precision = 1.0 * correct / (proposals + self.eps)
+        recall    = 1.0 * correct / (total + self.eps)
+        fscore    = 2.0 * precision * recall / (precision + recall + self.eps)
         print("precision: %f, recall: %f, fscore: %f" %
               (precision, recall, fscore))
-        
+
         with open('log_test.txt', 'a') as log:
             log.write("Epoch %d: precision: %f, recall: %f, fscore: %f\n" %
                       (epoch, precision, recall, fscore))
 
-    def simpleDetectFolder(self, path):
+    def detectFolder(self, path, saveMetrics=True):
+        path = os.path.expanduser(path)
 
+        IOU = ([], [], [], [], [], [], [], [], [], [],
+               [], [], [], [], [], [], [], [], [], [])
+        cm = np.zeros((20, 20), dtype=int)
         fileList = os.listdir(path)
-        imgList = [os.getcwd() + '/' + path + '/' +
+        imgList = [path + '/' +
                    s for s in fileList if '.jpg' in s]
+
         if imgList == []:
             print ("Erro, Empty list")
             return ([-1], [-1], [-1])
+
         imgList = np.sort(imgList)
         width, height = self.init_width, self.init_height
 
-        detectPath 		= path.replace("JPEGImages", "detect/")
-        labelLogFolder 	= path.replace("JPEGImages", "predicted_labels")
+        detectPath = path.replace("JPEGImages", "detect/")
+        labelLogFolder = path.replace("JPEGImages", "predicted_labels")
 
         if os.path.exists(labelLogFolder) is not True:
             os.makedirs(labelLogFolder)
@@ -206,94 +212,47 @@ class Yolo():
 
         for img_url in imgList:
 
-            img 	= Image.open(img_url).convert('RGB')
-            sized 	= img.resize((width, height))
-            boxes 	= ut.do_detect(self.model, sized, 0.5, 0.4, self.use_cuda)
-            splitt 	= str(img_url).split('/')
+            gt_path = img_url.replace(
+                "JPEGImages", "labels").replace("jpg", "txt")
+            predicted_path = img_url.replace(
+                "JPEGImages", "predicted_labels").replace("jpg", "txt")
+
+            img    = Image.open(img_url).convert('RGB')
+            sized  = img.resize((width, height))
+            boxes  = ut.do_detect(self.model, sized, 0.5, 0.4, self.use_cuda)
+            splitt = str(img_url).split('/')
 
             if img_url is img_url.replace("JPEGImages", "detect"):
                 print ("Path in Unexpected format")
                 return
-            predicted_path = img_url.replace(
-                "JPEGImages", "predicted_labels").replace("jpg", "txt")
 
             detections = []
             predictedLabels = []
+
             for i, box in enumerate(boxes):
 
                 predictClass = box[6]
+
                 xMin = (box[0] - box[2] / 2.0) * width
                 yMin = (box[1] - box[3] / 2.0) * height
                 xMax = (box[0] + box[2] / 2.0) * width
                 yMax = (box[1] + box[3] / 2.0) * height
                 bbox = np.array([[xMin, yMin], [xMax, yMax]])
-                
+
                 detections.append((predictClass, bbox))
                 predictedLabels.append(
                     (predictClass, box[0], box[1], box[2], box[3]))
 
             if len(boxes) > 0:
-                print (detectPath + splitt[-1])
+                #print (detectPath + splitt[-1])
                 ut.plot_boxes(img, boxes, detectPath +
                               splitt[-1], self.class_names)
                 with open(predicted_path, 'w') as f:
                     for predict in predictedLabels:
                         f.write(' '.join(str(e) + '' for e in predict) + '\n')
 
-    def detectFolder(self, path):
-
-        IOU = ([], [], [], [], [], [], [], [], [], [],
-               [], [], [], [], [], [], [], [], [], [])
-
-        cm = np.zeros((20, 20), dtype=int)
-        fileList = os.listdir(path)
-        imgList = [os.getcwd() + '/' + path + '/' +
-                   s for s in fileList if '.jpg' in s]
-
-        if imgList == []:
-            print ("Erro, Empty list")
-            return ([-1], [-1], [-1])
-
-        width, height = self.init_width, self.init_height
-        imgList = np.sort(imgList)
-        labelLogFolder = path.replace("JPEGImages", "predicted_labels")
-
-        if os.path.exists(labelLogFolder) is not True:
-            os.makedirs(labelLogFolder)
-
-        for img_url in imgList:
-            predictedLabels = []
-            img = Image.open(img_url).convert('RGB')
-            sized = img.resize((width, height))
-
-            boxes = ut.do_detect(self.model, sized, 0.5, 0.4, self.use_cuda)
-            #class_names = ut.load_class_names(namesfile)
-            splitt = str(img_url).split('/')
-            detectPath = ''
-
-            if img_url is img_url.replace("JPEGImages", "detect"):
-                print ("Path in Unexpected format")
-                return
-
-            detectPath = img_url.replace("JPEGImages", "detect")
-            detectPath = detectPath[:detectPath.rfind('/') + 1]
-            gt_path = img_url.replace(
-                "JPEGImages", "labels").replace("jpg", "txt")
-            predicted_path = img_url.replace(
-                "JPEGImages", "predicted_labels").replace("jpg", "txt")
-
-            detections = []
-            for i, box in enumerate(boxes):
-
-                predictClass = box[6]
-                xMin = (box[0] - box[2] / 2.0) * width
-                yMin = (box[1] - box[3] / 2.0) * height
-                xMax = (box[0] + box[2] / 2.0) * width
-                yMax = (box[1] + box[3] / 2.0) * height
-                bbox = np.array([[xMin, yMin], [xMax, yMax]])
-                detections.append((predictClass, bbox))
-                predictedLabels.append(
-                    (predictClass, box[0], box[1], box[2], box[3]))
+            if not saveMetrics:
+                continue
 
             truth = []
             with open(gt_path, 'r') as f:
@@ -313,6 +272,7 @@ class Yolo():
                     for j, (det_class, det_bbox) in enumerate(detections):
                         if d_check[j] == 0:
                             new_IOU = dt.getIOU(gt_bbox, det_bbox)
+                            #print(new_IOU, gt_class, det_class)
                             if new_IOU > 0.5 and gt_class is det_class:
                                 cm[gt_class][det_class] += 1
                                 t_check[i] = 1
@@ -349,28 +309,24 @@ class Yolo():
 
             if os.path.exists(detectPath) is not True:
                 os.makedirs(detectPath)
-            ut.plot_boxes(img, boxes, detectPath +
-                          splitt[-1], self.class_names)
 
             with open(predicted_path, 'w') as f:
                 for predict in predictedLabels:
                     f.write(' '.join(str(e) + '' for e in predict) + '\n')
 
-        logUrl = "../Synthetic/Log/"
+        logUrl = "Log/"
         if os.path.exists(logUrl) is not True:
             os.makedirs(logUrl)
 
         timeStamp = (datetime.now())
 
-        logName = path.replace(
-            'Synthetic/', '').replace('/JPEGImages', '_').replace('..', '')
+        logName = path.split('/')[-2] + '_'
         logName += '_'.join(str(x) for x in (timeStamp.year,
                                              timeStamp.month, timeStamp.day, timeStamp.minute))
         logName += '.txt'
 
         timeStamp = str(timeStamp)
 
-        logUrl = "../Synthetic/Log"
         print ("Creating Log : {}".format(logUrl + logName))
         with open(logUrl + logName, 'w') as f:
             IOU_class = []
@@ -506,23 +462,23 @@ class Yolo():
     def __initConfigProvider(self):
         self.cp = config.ConfigProvider(
             self.datacfg, self.cfgfile, self.weightfile)
-        
-        self.batch_size 	= self.cp.batch_size
-        self.nsamples 		= self.cp.trainSample
-        self.testDir 		= self.cp.getTestUrl()
-        self.trainDir 		= self.cp.getTrainUrl()
-        self.momentum 		= self.cp.momentum
-        self.lr 			= self.cp.learning_rate
-        self.decay 			= self.cp.decay
-        self.steps 			= self.cp.steps
-        self.scales 		= self.cp.scales
-        self.backupDir 		= self.cp.backupDir
-        self.save_interval 	= self.cp.save_interval
-        self.conf_thresh 	= self.cp.conf_thresh
-        self.nms_thresh 	= self.cp.nms_thresh
-        self.iou_thresh 	= self.cp.iou_thresh
-        self.eps 			= self.cp.eps
-        self.use_cuda 		= self.cp.USE_CUDA
+
+        self.batch_size     = self.cp.batch_size
+        self.nsamples       = self.cp.trainSample
+        self.testDir        = self.cp.getTestUrl()
+        self.trainDir       = self.cp.getTrainUrl()
+        self.momentum       = self.cp.momentum
+        self.lr             = self.cp.learning_rate
+        self.decay          = self.cp.decay
+        self.steps          = self.cp.steps
+        self.scales         = self.cp.scales
+        self.backupDir      = self.cp.backupDir
+        self.save_interval  = self.cp.save_interval
+        self.conf_thresh    = self.cp.conf_thresh
+        self.nms_thresh     = self.cp.nms_thresh
+        self.iou_thresh     = self.cp.iou_thresh
+        self.eps            = self.cp.eps
+        self.use_cuda       = self.cp.USE_CUDA
 
     def __init_test_loader(self):
 
@@ -537,19 +493,19 @@ class Yolo():
 
 
 if __name__ == '__main__':
-    init = 0
+    init = 40
     weight = "Backup/{:06d}.weights".format(init)
     yolocfg = 'Config/yolo-voc.cfg'
     namesfile = 'Config/table.names'
     yolo = Yolo('Config/restaurant_table.csv', yolocfg, weight, namesfile)
-    
+
     yolo.save_interval = 5
-    
-    for i in tqdm(range(init, init + 1)):
-        yolo.train(i, fixLR=0.00001)
-        yolo.test(i)
-       
-    #alfa = yolo.simpleDetectFolder('../Synthetic/RM1/JPEGImages')
+
+    # for i in tqdm(range(init, init + 1)):
+    #yolo.train(i, fixLR=0.00001)
+    # yolo.test(i)
+
+    alfa = yolo.detectFolder('~/.Datasets/RM1/JPEGImages')
 # =============================================================================
     #beta = yolo.detectCam(0)
 # =============================================================================

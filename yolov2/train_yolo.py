@@ -321,8 +321,8 @@ class Yolo():
         timeStamp = (datetime.now())
 
         logName = path.split('/')[-2] + '_'
-        logName += '_'.join(str(x) for x in (timeStamp.year,
-                                             timeStamp.month, timeStamp.day, timeStamp.minute))
+        logName += '_'.join("{:02d}".format(x) for x in (timeStamp.year,
+                                             timeStamp.month, timeStamp.day, timeStamp.hour, timeStamp.minute))
         logName += '.txt'
 
         timeStamp = str(timeStamp)
@@ -354,8 +354,29 @@ class Yolo():
                 cmMatrix += cmLine + '\n'
             f.write(cmMatrix)
 
+            cm = np.array(cm, dtype=np.float)
+            TP = np.diag(cm)
+            FP = np.sum(cm, axis=0) - TP
+            FN = np.sum(cm, axis=1) - TP
+            precision = np.divide(TP, (TP+FP), out=np.zeros_like(TP), where=(TP+FP)!=0)
+            recall = np.divide(TP, (TP+FN), out=np.zeros_like(TP), where=(TP+FN)!=0)
+            
             f.write("\n")
-            f.write("Acurracy {0:.3f}".format(cm.trace() / float(cm.sum())))
+            f.write("Acurracy    {0:.3f}".format(cm.trace() / float(cm.sum())))
+            f.write("\n")
+            f.write("MRecall     {0:.3f}".format(np.sum(recall)/np.count_nonzero(recall)))
+            f.write("\n")
+            f.write("MPrecision  {0:.3f}".format(np.sum(precision)/np.count_nonzero(precision)))
+            f.write("\n\n")
+            f.write("Recall\t    ")
+            for rc in recall:
+                f.write("{:0.3f}".format(rc)+"\t")
+            f.write("\nPrecision\t")
+            for pc in precision:
+                f.write("{:0.3f}".format(pc)+"\t")
+            f.write("\n")
+                
+            
 
         return IOU
 
